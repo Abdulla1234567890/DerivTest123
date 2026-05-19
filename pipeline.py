@@ -17,6 +17,7 @@ from pathlib import Path
 
 from google import genai
 from google.genai import types as gentypes
+from groq import Groq
 
 BASE_DIR = Path(__file__).parent
 
@@ -239,34 +240,46 @@ def _call_llm(client, config, *, tool_name, prompt, stage, ticket_id,
         return result
 
     # ── Live API call ─────────────────────────────────────────────────────────
-    response = client.models.generate_content(
-        model=config["model"],
-        contents=full_prompt,
-        config=gentypes.GenerateContentConfig(
-            response_mime_type="application/json",
+    provider = config["provider"]
+
+    if provider == "groq":
+        response = client.chat.completions.create(
+            model=config["model"],
+            messages=[{"role": "user", "content": full_prompt}],
+            response_format={"type": "json_object"},
             temperature=0.2,
-        ),
-    )
+        )
+        text = response.choices[0].message.content.strip()
+
+    elif provider == "google":
+        response = client.models.generate_content(
+            model=config["model"],
+            contents=full_prompt,
+            config=gentypes.GenerateContentConfig(
+                response_mime_type="application/json",
+                temperature=0.2,
+            ),
+        )
+        text = response.text.strip()
+
+    else:
+        raise ValueError(f"Unknown provider '{provider}'. Use 'groq' or 'google'.")
 
     llm_logger.log(
         stage=stage,
         ticket_id=ticket_id,
-        provider=config["provider"],
+        provider=provider,
         model=config["model"],
         prompt_text=full_prompt,
         input_artifacts=input_artifacts,
         output_artifact=output_artifact,
     )
 
-    text = response.text.strip()
     # Fallback: pull JSON object out if model wrapped it in markdown
     if not text.startswith("{"):
         m = re.search(r"\{.*\}", text, re.DOTALL)
         if m:
             text = m.group(0)
-
-    # Respect free-tier RPM limit (15 req/min → ~4s gap keeps us safe)
-    time.sleep(4)
 
     return json.loads(text)
 
@@ -304,15 +317,26 @@ def run_pipeline(progress_queue=None):
         if config.get("mock_mode"):
             client = None
             log("Running in MOCK mode — no API calls will be made")
-        else:
+        elif config["provider"] == "groq":
+            api_key = os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                raise EnvironmentError(
+                    "GROQ_API_KEY environment variable is not set. "
+                    "Add it to your .env file: GROQ_API_KEY=gsk_..."
+                )
+            client = Groq(api_key=api_key)
+            log(f"Using Groq model: {config['model']}")
+        elif config["provider"] == "google":
             api_key = os.environ.get("GOOGLE_API_KEY")
             if not api_key:
                 raise EnvironmentError(
                     "GOOGLE_API_KEY environment variable is not set. "
-                    "Export it before running: export GOOGLE_API_KEY=AIza..."
+                    "Add it to your .env file: GOOGLE_API_KEY=AIza..."
                 )
             client = genai.Client(api_key=api_key)
-            log(f"Using model: {config['model']}")
+            log(f"Using Google model: {config['model']}")
+        else:
+            raise ValueError(f"Unknown provider: {config['provider']}")
         stage_done("INIT")
 
         # ── INPUTS_LOADED ─────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 {
-  "provider": "google",
-  "model": "gemini-2.0-flash-lite",
-  "mock_mode": true,
+  "provider": "groq",
+  "model": "llama-3.3-70b-versatile",
+  "mock_mode": false,
   "retrieval": {
     "top_n": 3,
     "safety_policy_tag": "safety"
