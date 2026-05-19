@@ -2,7 +2,7 @@
 
 An offline, replayable AI-assisted customer support workflow built for the Deriv technical assessment.
 
-Given a set of support tickets and a policy knowledge base, the pipeline classifies each ticket, retrieves relevant policies, drafts a reply, runs an LLM reviewer, applies deterministic safety checks, and produces a final response pack — all traceable and reproducible.
+Given a set of support tickets and a policy knowledge base, the pipeline classifies each ticket, retrieves relevant policies, drafts a reply, runs an LLM reviewer, applies deterministic safety checks, and produces a final response pack — all traceable and reproducible. Note : Once you have your API Setup please go into config and update model there and also add .env file as well
 
 ---
 
