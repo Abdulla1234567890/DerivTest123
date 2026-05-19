@@ -1,0 +1,130 @@
+{
+  "provider": "google",
+  "model": "gemini-2.0-flash-lite",
+  "mock_mode": true,
+  "retrieval": {
+    "top_n": 3,
+    "safety_policy_tag": "safety"
+  },
+  "min_reply_length": 50,
+  "categories": [
+    "withdrawal_issue",
+    "payment_issue",
+    "verification_issue",
+    "account_closure",
+    "other"
+  ],
+  "banned_phrases": [
+    "guarantee",
+    "definitely",
+    "will be approved today",
+    "refund today",
+    "i promise",
+    "will definitely",
+    "immediately processed",
+    "100% sure",
+    "approve your account today",
+    "process your refund today"
+  ],
+  "tools": {
+    "triage": {
+      "description": "Classify and triage a customer support ticket",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "description": "The ticket identifier"
+          },
+          "category": {
+            "type": "string",
+            "enum": ["withdrawal_issue", "payment_issue", "verification_issue", "account_closure", "other"],
+            "description": "The primary issue category"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "description": "Issue priority level"
+          },
+          "should_escalate": {
+            "type": "boolean",
+            "description": "Whether this issue requires manual investigation beyond standard guidance"
+          },
+          "reason": {
+            "type": "string",
+            "description": "Brief explanation of the classification and escalation decision"
+          },
+          "missing_information": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Information that would help resolve this ticket but is not provided"
+          }
+        },
+        "required": ["ticket_id", "category", "priority", "should_escalate", "reason", "missing_information"]
+      }
+    },
+    "drafting": {
+      "description": "Draft a customer-facing reply to a support ticket",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "description": "The ticket identifier"
+          },
+          "subject": {
+            "type": "string",
+            "description": "Subject line for the reply"
+          },
+          "reply": {
+            "type": "string",
+            "description": "The full customer-facing reply text"
+          },
+          "cited_policy_ids": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Policy IDs referenced in this reply"
+          },
+          "escalation_note": {
+            "type": ["string", "null"],
+            "description": "Internal escalation note if the ticket needs human review, or null"
+          }
+        },
+        "required": ["ticket_id", "subject", "reply", "cited_policy_ids", "escalation_note"]
+      }
+    },
+    "review": {
+      "description": "Review a draft customer support reply for quality and safety",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ticket_id": {
+            "type": "string",
+            "description": "The ticket identifier"
+          },
+          "approved": {
+            "type": "boolean",
+            "description": "Whether the reply meets all quality and safety standards"
+          },
+          "issues": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "List of specific issues found, empty if approved"
+          },
+          "suggested_fix": {
+            "type": "string",
+            "description": "A concrete suggestion to fix the issues, or empty string if approved"
+          }
+        },
+        "required": ["ticket_id", "approved", "issues", "suggested_fix"]
+      }
+    }
+  },
+  "prompts": {
+    "triage": "You are a support ticket classifier for a financial trading platform.\n\nClassify the ticket below into exactly one category:\n${categories_list}\n\nPriority rules:\n- high: financial urgency, money at risk, or a very frustrated customer\n- medium: standard issue affecting the customer experience\n- low: informational request with no immediate financial impact\n\nEscalation rules:\n- should_escalate = true: the issue requires individual account investigation, involves suspected fraud, or cannot be fully resolved with standard policy guidance\n- should_escalate = false: standard policy guidance completely addresses the concern\n\nList any missing_information that would help resolve this ticket but was not provided.\n\nTicket ID: ${ticket_id}\nCustomer: ${customer_name}\nSubject: ${subject}\nMessage: ${message}",
+
+    "drafting": "You are a customer support agent for a financial trading platform.\n\nWrite a professional, empathetic reply to the ticket below. You MUST:\n- Address the customer by name\n- Acknowledge their concern genuinely\n- Base your reply ONLY on the policy snippets provided — do not introduce information from elsewhere\n- Cite the policy IDs you used in cited_policy_ids\n- If should_escalate is true, clearly explain the next steps and do NOT claim the issue is already resolved\n- Never promise refunds, approval, or expedited processing unless the policy explicitly states it\n- Keep the reply concise and under 200 words\n- Be polite, professional, and reassuring\n\nTicket ID: ${ticket_id}\nSubject: ${subject}\nCustomer: ${customer_name}\nMessage: ${message}\n\nTriage result:\n- Category: ${category}\n- Priority: ${priority}\n- Should escalate: ${should_escalate}\n- Escalation reason: ${reason}\n\nRelevant policy snippets (use ONLY these):\n${policies_text}",
+
+    "review": "You are a quality reviewer for customer support responses at a financial trading platform.\n\nReview the draft reply and evaluate it on all four criteria:\n1. Grounded: Does the reply stay strictly within what the retrieved policies support? No unsupported claims or invented information?\n2. Safe: Does it avoid risky promises, guarantees, or statements that could create compliance or legal problems?\n3. Clear: Can the customer clearly understand their situation and next steps?\n4. Escalation: If escalation was required (should_escalate=true), is it handled transparently without pretending the issue is resolved?\n\nSet approved=false if ANY criterion fails. List every specific issue found. If approved=false, write a concrete suggested_fix.\n\nTicket ID: ${ticket_id}\nCustomer: ${customer_name}\nSubject: ${subject}\nMessage: ${ticket_message}\n\nRetrieved policies:\n${policies_text}\n\nDraft reply:\n${reply}\n\nTriage context:\n- Category: ${category}\n- Should escalate: ${should_escalate}"
+  }
+}

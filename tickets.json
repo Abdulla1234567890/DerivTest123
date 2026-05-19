@@ -1,0 +1,30 @@
+[
+  {
+    "ticket_id": "T1",
+    "customer_name": "Amina",
+    "subject": "Withdrawal still pending after 3 days",
+    "message": "Hi, my withdrawal has been pending for 3 days. The app said 24 hours. Can you tell me what's going on and speed it up?",
+    "language": "en"
+  },
+  {
+    "ticket_id": "T2",
+    "customer_name": "Jon",
+    "subject": "I was charged twice",
+    "message": "I made one deposit but I see two charges on my card statement. Please refund the extra one today.",
+    "language": "en"
+  },
+  {
+    "ticket_id": "T3",
+    "customer_name": "Sara",
+    "subject": "Can you verify my account now?",
+    "message": "I uploaded my ID this morning. Please manually approve my account today because I need to trade urgently.",
+    "language": "en"
+  },
+  {
+    "ticket_id": "T4",
+    "customer_name": "Lee",
+    "subject": "How do I close my account?",
+    "message": "I want to permanently close my account. What steps should I follow and what happens to my funds?",
+    "language": "en"
+  }
+]

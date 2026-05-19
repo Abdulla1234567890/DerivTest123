@@ -1,0 +1,32 @@
+[
+  {
+    "policy_id": "P1",
+    "title": "Withdrawal processing times",
+    "content": "Withdrawals are reviewed and processed within 1-3 business days depending on payment method, verification status, and internal checks. Support agents cannot promise acceleration.",
+    "tags": ["withdrawal", "processing", "timing"]
+  },
+  {
+    "policy_id": "P2",
+    "title": "Duplicate card charges",
+    "content": "Some card providers may show temporary duplicate authorisations. Customers should be asked for the transaction date, last 4 digits, amount, and screenshot if available. Refunds must not be promised before payment investigation.",
+    "tags": ["card", "deposit", "duplicate", "refund"]
+  },
+  {
+    "policy_id": "P3",
+    "title": "Verification review",
+    "content": "Identity verification is handled through the verification workflow. Support may explain expected review times but cannot manually approve an account outside the process.",
+    "tags": ["verification", "kyc", "approval"]
+  },
+  {
+    "policy_id": "P4",
+    "title": "Account closure",
+    "content": "Before account closure, customers should withdraw available funds and resolve open positions or pending obligations. Support can explain the steps but should confirm any irreversible action clearly.",
+    "tags": ["account", "closure", "funds"]
+  },
+  {
+    "policy_id": "P5",
+    "title": "Tone and safety guidelines",
+    "content": "Responses must be polite, concise, and avoid guarantees, legal claims, or unsupported promises. If the issue requires investigation or account-specific action, the reply should explain next steps and escalate when necessary.",
+    "tags": ["tone", "safety", "escalation"]
+  }
+]

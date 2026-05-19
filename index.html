@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deriv Support Pipeline</title>
+<style>
+:root {
+  --bg0: #0d1117;
+  --bg1: #161b22;
+  --bg2: #21262d;
+  --border: #30363d;
+  --txt: #e6edf3;
+  --txt2: #8b949e;
+  --red: #FF444F;
+  --red-dim: rgba(255,68,79,.12);
+  --green: #3fb950;
+  --green-dim: rgba(63,185,80,.12);
+  --amber: #d29922;
+  --amber-dim: rgba(210,153,34,.12);
+  --blue: #58a6ff;
+  --blue-dim: rgba(88,166,255,.1);
+  --err: #f85149;
+  --font-mono: 'Cascadia Code','Fira Code','Monaco',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:var(--bg0);color:var(--txt);display:flex;flex-direction:column;}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+header{
+  background:var(--bg1);border-bottom:1px solid var(--border);
+  padding:10px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+  height:56px;
+}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{
+  width:34px;height:34px;background:var(--red);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:700;color:#fff;letter-spacing:-.5px;
+}
+.logo-name{font-size:15px;font-weight:600;}
+.logo-sub{font-size:11px;color:var(--txt2);}
+header .gap{flex:1;}
+.btn{
+  padding:7px 14px;border-radius:6px;border:1px solid var(--border);
+  background:var(--bg2);color:var(--txt);cursor:pointer;font-size:13px;
+  font-weight:500;transition:.15s;white-space:nowrap;
+}
+.btn:hover{border-color:var(--blue);}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.btn-primary{background:var(--red);border-color:var(--red);color:#fff;}
+.btn-primary:hover{filter:brightness(1.1);border-color:var(--red);}
+.status-pill{
+  font-size:11px;padding:3px 10px;border-radius:12px;font-weight:500;
+  background:var(--bg2);color:var(--txt2);border:1px solid var(--border);
+}
+.status-pill.running{background:var(--amber-dim);color:var(--amber);border-color:var(--amber);}
+.status-pill.done{background:var(--green-dim);color:var(--green);border-color:var(--green);}
+.status-pill.error{background:rgba(248,81,73,.12);color:var(--err);border-color:var(--err);}
+
+/* ── Layout ──────────────────────────────────────────────────────────────── */
+.body{display:flex;flex:1;overflow:hidden;}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+.sidebar{
+  width:210px;flex-shrink:0;background:var(--bg1);
+  border-right:1px solid var(--border);overflow-y:auto;padding:14px 12px;
+}
+.sidebar-title{
+  font-size:10px;text-transform:uppercase;letter-spacing:.1em;
+  color:var(--txt2);margin-bottom:10px;padding-left:8px;
+}
+.stage{
+  display:flex;align-items:center;gap:9px;padding:7px 8px;
+  border-radius:6px;margin-bottom:2px;cursor:default;
+}
+.dot{
+  width:9px;height:9px;border-radius:50%;flex-shrink:0;
+  background:var(--border);transition:background .3s;
+}
+.stage.running .dot{background:var(--amber);animation:pulse .9s infinite;}
+.stage.done    .dot{background:var(--green);}
+.stage.error   .dot{background:var(--err);}
+.stage-name{font-size:12px;color:var(--txt2);line-height:1.3;}
+.stage.done  .stage-name{color:var(--txt);}
+.stage.running .stage-name{color:var(--amber);}
+.stage.error .stage-name{color:var(--err);}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+/* ── Content ─────────────────────────────────────────────────────────────── */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.tabs{
+  display:flex;border-bottom:1px solid var(--border);
+  background:var(--bg1);padding:0 16px;flex-shrink:0;overflow-x:auto;
+}
+.tab{
+  padding:9px 14px;font-size:12px;cursor:pointer;color:var(--txt2);
+  border-bottom:2px solid transparent;white-space:nowrap;transition:.12s;
+  user-select:none;
+}
+.tab:hover{color:var(--txt);}
+.tab.active{color:var(--red);border-bottom-color:var(--red);}
+.badge{
+  display:inline-block;background:var(--bg2);border-radius:9px;
+  font-size:10px;padding:1px 5px;margin-left:4px;color:var(--txt2);
+}
+
+/* ── Artifact viewer ─────────────────────────────────────────────────────── */
+.viewer{flex:1;overflow-y:auto;padding:16px;}
+.empty{
+  display:flex;flex-direction:column;align-items:center;
+  justify-content:center;height:100%;color:var(--txt2);gap:10px;
+}
+.empty .icon{font-size:44px;}
+.empty p{font-size:14px;}
+
+/* JSON pre */
+pre.json{
+  background:var(--bg1);border:1px solid var(--border);border-radius:8px;
+  padding:14px;font-family:var(--font-mono);font-size:12px;line-height:1.65;
+  overflow-x:auto;white-space:pre-wrap;word-break:break-word;
+}
+.jk{color:#79c0ff;} /* key */
+.js{color:#a5d6ff;} /* string */
+.jn{color:#f2cc60;} /* number */
+.jb{color:#ff7b72;} /* bool */
+.jx{color:var(--txt2);} /* null */
+
+/* Stats strip */
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));
+  gap:10px;margin-bottom:16px;
+}
+.stat-card{
+  background:var(--bg1);border:1px solid var(--border);border-radius:8px;
+  padding:12px 14px;
+}
+.stat-card .val{font-size:26px;font-weight:700;color:var(--blue);}
+.stat-card .val.green{color:var(--green);}
+.stat-card .val.amber{color:var(--amber);}
+.stat-card .val.red{color:var(--err);}
+.stat-card .lbl{font-size:11px;color:var(--txt2);margin-top:2px;}
+.stat-card .ico{font-size:18px;margin-bottom:4px;}
+
+/* Ticket summary rows */
+.ticket-row{
+  display:flex;align-items:center;gap:10px;padding:9px 12px;
+  background:var(--bg1);border:1px solid var(--border);border-radius:6px;
+  margin-bottom:6px;cursor:pointer;transition:.12s;
+}
+.ticket-row:hover{border-color:var(--blue);}
+.tid{font-weight:600;font-size:13px;min-width:28px;}
+
+/* Badges */
+.pill{
+  font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500;
+  white-space:nowrap;
+}
+.pill-cat{background:var(--red-dim);color:var(--red);}
+.pill-high{background:rgba(248,81,73,.12);color:var(--err);}
+.pill-medium{background:var(--blue-dim);color:var(--blue);}
+.pill-low{background:var(--bg2);color:var(--txt2);}
+.pill-ready{background:var(--green-dim);color:var(--green);}
+.pill-review{background:var(--amber-dim);color:var(--amber);}
+.pill-policy{background:var(--blue-dim);color:var(--blue);margin-right:3px;}
+
+/* Final ticket cards */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:14px;}
+.card{
+  background:var(--bg1);border:1px solid var(--border);border-radius:8px;
+  padding:14px;transition:.12s;
+}
+.card:hover{border-color:var(--blue);}
+.card.ready{border-left:3px solid var(--green);}
+.card.review{border-left:3px solid var(--amber);}
+.card-head{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+.card-body{
+  font-size:12.5px;line-height:1.65;color:var(--txt2);
+  background:var(--bg2);border-radius:6px;padding:10px;margin:10px 0;
+}
+.card-meta{font-size:11px;color:var(--txt2);display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.card-notes{margin-top:8px;}
+.note{font-size:11px;color:var(--amber);padding:2px 0;}
+.note::before{content:"⚠ ";}
+
+/* Check items */
+.check-block{
+  background:var(--bg1);border:1px solid var(--border);border-radius:8px;
+  padding:14px;margin-bottom:10px;
+}
+.check-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.issue-list{list-style:none;margin-left:24px;}
+.issue-list li{font-size:12px;color:var(--amber);padding:2px 0;}
+.issue-list li::before{content:"→ ";color:var(--txt2);}
+
+/* Validation */
+.val-item{
+  display:flex;align-items:flex-start;gap:10px;padding:8px 0;
+  border-bottom:1px solid var(--border);font-size:13px;
+}
+.val-item:last-child{border-bottom:none;}
+.val-icon{flex-shrink:0;font-size:15px;margin-top:1px;}
+.val-detail{font-size:11px;color:var(--txt2);margin-top:3px;}
+
+/* ── Log panel ───────────────────────────────────────────────────────────── */
+.log-panel{
+  height:185px;flex-shrink:0;border-top:1px solid var(--border);
+  background:var(--bg0);display:flex;flex-direction:column;
+}
+.log-bar{
+  display:flex;align-items:center;gap:8px;padding:5px 14px;
+  border-bottom:1px solid var(--border);background:var(--bg1);
+  font-size:11px;color:var(--txt2);flex-shrink:0;
+}
+.log-bar .gap{flex:1;}
+.ind{width:7px;height:7px;border-radius:50%;background:var(--border);transition:.3s;}
+.ind.on{background:var(--green);animation:pulse .9s infinite;}
+#log{flex:1;overflow-y:auto;padding:6px 14px;font-family:var(--font-mono);font-size:11.5px;line-height:1.55;}
+.ll{margin-bottom:1px;}
+.ll .ts{color:var(--txt2);margin-right:8px;}
+.ll.start{color:var(--blue);}
+.ll.done2{color:var(--green);}
+.ll.err{color:var(--err);}
+.ll.finish{color:var(--green);font-weight:600;}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────── -->
+<header>
+  <div class="logo">
+    <div class="logo-mark">D</div>
+    <div>
+      <div class="logo-name">Deriv Support Pipeline</div>
+      <div class="logo-sub">AI-assisted ticket resolution</div>
+    </div>
+  </div>
+  <div class="gap"></div>
+  <span id="status-pill" class="status-pill">Idle</span>
+  <button class="btn" onclick="runValidation()" id="btn-val">Validate Outputs</button>
+  <button class="btn btn-primary" onclick="runPipeline()" id="btn-run">▶ Run Pipeline</button>
+</header>
+
+<div class="body">
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <div class="sidebar">
+    <div class="sidebar-title">Pipeline Stages</div>
+    <div id="stages"></div>
+  </div>
+
+  <!-- ── Content ─────────────────────────────────────────────────────── -->
+  <div class="content">
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-tab="overview"  onclick="showTab('overview')">Overview</div>
+      <div class="tab"        data-tab="triage"    onclick="showTab('triage')">Triage</div>
+      <div class="tab"        data-tab="retrieval" onclick="showTab('retrieval')">Retrieval</div>
+      <div class="tab"        data-tab="drafts"    onclick="showTab('drafts')">Drafts</div>
+      <div class="tab"        data-tab="reviews"   onclick="showTab('reviews')">Reviews</div>
+      <div class="tab"        data-tab="checks"    onclick="showTab('checks')">Checks</div>
+      <div class="tab"        data-tab="final"     onclick="showTab('final')">Final</div>
+      <div class="tab"        data-tab="llmlog"    onclick="showTab('llmlog')">LLM Log</div>
+      <div class="tab"        data-tab="validation" onclick="showTab('validation')">Validation</div>
+    </div>
+    <div class="viewer" id="viewer"></div>
+  </div>
+</div>
+
+<!-- ── Log panel ────────────────────────────────────────────────────────── -->
+<div class="log-panel">
+  <div class="log-bar">
+    <div class="ind" id="ind"></div>
+    <span>Live Log</span>
+    <div class="gap"></div>
+    <button class="btn" style="font-size:11px;padding:2px 9px;" onclick="document.getElementById('log').innerHTML=''">Clear</button>
+  </div>
+  <div id="log"></div>
+</div>
+
+<script>
+// ── Stage definitions ────────────────────────────────────────────────────────
+const STAGES = [
+  { id:'INIT',               label:'Initialise' },
+  { id:'INPUTS_LOADED',      label:'Inputs Loaded' },
+  { id:'TICKETS_PARSED',     label:'Tickets Parsed' },
+  { id:'KB_INDEXED',         label:'KB Indexed' },
+  { id:'TICKET_TRIAGED',     label:'Ticket Triaged' },
+  { id:'EVIDENCE_RETRIEVED', label:'Evidence Retrieved' },
+  { id:'RESPONSE_DRAFTED',   label:'Response Drafted' },
+  { id:'RESPONSE_REVIEWED',  label:'Response Reviewed' },
+  { id:'RESPONSE_CHECKED',   label:'Response Checked' },
+  { id:'RESPONSE_FINALISED', label:'Response Finalised' },
+];
+
+// ── State ────────────────────────────────────────────────────────────────────
+let artifacts = {};
+let validationData = null;
+let currentTab = 'overview';
+let running = false;
+
+// ── Stage sidebar init ───────────────────────────────────────────────────────
+function initStages() {
+  const el = document.getElementById('stages');
+  el.innerHTML = '';
+  STAGES.forEach(s => {
+    const d = document.createElement('div');
+    d.className = 'stage pending';
+    d.id = 'st-' + s.id;
+    d.innerHTML = `<div class="dot"></div><div class="stage-name">${s.label}</div>`;
+    el.appendChild(d);
+  });
+}
+
+function setStage(id, state) {
+  const el = document.getElementById('st-' + id);
+  if (el) el.className = 'stage ' + state;
+}
+
+function resetStages() {
+  STAGES.forEach(s => setStage(s.id, 'pending'));
+}
+
+// ── Log ──────────────────────────────────────────────────────────────────────
+function log(msg, cls='') {
+  const el = document.getElementById('log');
+  const ts = new Date().toLocaleTimeString('en-GB', {hour12:false});
+  const d = document.createElement('div');
+  d.className = 'll ' + cls;
+  d.innerHTML = `<span class="ts">${ts}</span>${esc(msg)}`;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ── JSON syntax highlight ────────────────────────────────────────────────────
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function highlight(obj) {
+  const s = JSON.stringify(obj, null, 2);
+  return s.replace(
+    /("(?:\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+    m => {
+      if (/^"/.test(m)) return /:$/.test(m)
+        ? `<span class="jk">${esc(m)}</span>`
+        : `<span class="js">${esc(m)}</span>`;
+      if (/true|false/.test(m)) return `<span class="jb">${m}</span>`;
+      if (/null/.test(m))       return `<span class="jx">${m}</span>`;
+      return `<span class="jn">${m}</span>`;
+    }
+  );
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function showTab(id) {
+  currentTab = id;
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.tab === id));
+  renderTab(id);
+}
+
+function renderTab(id) {
+  const v = document.getElementById('viewer');
+  switch(id) {
+    case 'overview':  renderOverview(v);   break;
+    case 'triage':    renderJSON(v, artifacts['triage.json'], 'triage.json'); break;
+    case 'retrieval': renderJSON(v, artifacts['retrieval_results.json'], 'retrieval_results.json'); break;
+    case 'drafts':    renderJSON(v, artifacts['draft_responses.json'], 'draft_responses.json'); break;
+    case 'reviews':   renderJSON(v, artifacts['review_results.json'], 'review_results.json'); break;
+    case 'checks':    renderChecks(v);     break;
+    case 'final':     renderFinal(v);      break;
+    case 'llmlog':    renderJSON(v, artifacts['llm_calls.jsonl'], 'llm_calls.jsonl'); break;
+    case 'validation':renderValidation(v); break;
+  }
+}
+
+function empty(v, icon, msg) {
+  v.innerHTML = `<div class="empty"><div class="icon">${icon}</div><p>${msg}</p></div>`;
+}
+
+function renderJSON(v, data, fname) {
+  if (!data) { empty(v,'📄',`${fname} not generated yet — run the pipeline first`); return; }
+  v.innerHTML = `<div style="font-size:11px;color:var(--txt2);margin-bottom:8px;">${fname}</div>
+    <pre class="json">${highlight(data)}</pre>`;
+}
+
+// ── Overview ─────────────────────────────────────────────────────────────────
+function renderOverview(v) {
+  if (!Object.keys(artifacts).length) {
+    empty(v,'🚀','Click <strong>Run Pipeline</strong> to process all tickets end-to-end');
+    return;
+  }
+  const fin   = artifacts['final_responses.json']  || [];
+  const chks  = artifacts['response_checks.json']  || [];
+  const revs  = artifacts['review_results.json']   || [];
+  const calls = artifacts['llm_calls.jsonl']        || [];
+
+  const ready    = fin.filter(f=>f.final_status==='ready').length;
+  const needsRev = fin.filter(f=>f.final_status!=='ready').length;
+  const passed   = chks.filter(c=>c.passed).length;
+  const approved = revs.filter(r=>r.approved).length;
+
+  v.innerHTML = `
+    <div class="stats">
+      ${stat(fin.length,   'Tickets',         '🎫', '')}
+      ${stat(ready,        'Ready',           '✅','green')}
+      ${stat(needsRev,     'Needs Review',    '⚠️','amber')}
+      ${stat(passed+'/'+chks.length, 'Checks Passed', '🔍', passed===chks.length?'green':'amber')}
+      ${stat(approved+'/'+revs.length,'Reviews OK',   '👁', approved===revs.length?'green':'amber')}
+      ${stat(calls.length, 'LLM Calls',       '🤖','blue')}
+    </div>
+    <div style="font-size:11px;color:var(--txt2);margin-bottom:8px;">Ticket Summary (click to jump to Final tab)</div>
+    <div>${fin.map(t=>ticketRow(t,chks,revs)).join('')}</div>
+  `;
+}
+
+function stat(val, lbl, ico, col) {
+  return `<div class="stat-card">
+    <div class="ico">${ico}</div>
+    <div class="val ${col}">${val}</div>
+    <div class="lbl">${lbl}</div>
+  </div>`;
+}
+
+function pillPrio(p) {
+  const cls = p==='high'?'high':p==='medium'?'medium':'low';
+  return `<span class="pill pill-${cls}">${p}</span>`;
+}
+
+function ticketRow(ticket, chks, revs) {
+  const chk = chks.find(c=>c.ticket_id===ticket.ticket_id)||{};
+  const rev = revs.find(r=>r.ticket_id===ticket.ticket_id)||{};
+  const isReady = ticket.final_status==='ready';
+  const cat = (ticket.category||'').replace(/_/g,' ');
+  return `<div class="ticket-row" onclick="showTab('final')">
+    <div class="tid">${ticket.ticket_id}</div>
+    <span class="pill pill-cat">${cat}</span>
+    ${pillPrio(ticket.priority)}
+    <div style="flex:1;font-size:11.5px;color:var(--txt2);">
+      ${chk.passed?'✅ Checks OK':'❌ '+(chk.issues||[]).length+' check issue(s)'}
+      &nbsp;·&nbsp;
+      ${rev.approved?'👁 Approved':'⚠ Review issues'}
+    </div>
+    <span class="pill ${isReady?'pill-ready':'pill-review'}">${ticket.final_status}</span>
+  </div>`;
+}
+
+// ── Final view ────────────────────────────────────────────────────────────────
+function renderFinal(v) {
+  const data = artifacts['final_responses.json'];
+  if (!data) { empty(v,'📋','final_responses.json not generated yet'); return; }
+  v.innerHTML = `<div style="font-size:11px;color:var(--txt2);margin-bottom:12px;">
+    final_responses.json — ${data.length} ticket(s)</div>
+    <div class="cards">${data.map(finalCard).join('')}</div>`;
+}
+
+function finalCard(t) {
+  const isReady = t.final_status==='ready';
+  const cat = (t.category||'').replace(/_/g,' ');
+  const notes = (t.notes||[]).filter(n=>n);
+  return `<div class="card ${isReady?'ready':'review'}">
+    <div class="card-head">
+      <strong>${t.ticket_id}</strong>
+      <span class="pill pill-cat">${cat}</span>
+      ${pillPrio(t.priority)}
+      <span class="pill ${isReady?'pill-ready':'pill-review'}">${t.final_status}</span>
+    </div>
+    <div class="card-body">${esc(t.reply||'')}</div>
+    <div class="card-meta">
+      <span>Policies:</span>
+      ${(t.supporting_policy_ids||[]).map(p=>`<span class="pill pill-policy">${p}</span>`).join('')}
+    </div>
+    ${notes.length?`<div class="card-notes">${notes.map(n=>`<div class="note">${esc(n)}</div>`).join('')}</div>`:''}
+  </div>`;
+}
+
+// ── Checks view ───────────────────────────────────────────────────────────────
+function renderChecks(v) {
+  const data = artifacts['response_checks.json'];
+  if (!data) { empty(v,'🔍','response_checks.json not generated yet'); return; }
+  v.innerHTML = `<div style="font-size:11px;color:var(--txt2);margin-bottom:12px;">
+    response_checks.json — ${data.length} ticket(s)</div>
+    ${data.map(c=>`
+    <div class="check-block">
+      <div class="check-head">
+        <span style="font-size:16px;">${c.passed?'✅':'❌'}</span>
+        <strong>${c.ticket_id}</strong>
+        <span class="pill ${c.passed?'pill-ready':'pill-review'}">${c.passed?'all checks passed':c.issues.length+' issue(s)'}</span>
+      </div>
+      ${c.issues.length?`<ul class="issue-list">${c.issues.map(i=>`<li>${esc(i)}</li>`).join('')}</ul>`:''}
+    </div>`).join('')}`;
+}
+
+// ── Validation view ───────────────────────────────────────────────────────────
+function renderValidation(v) {
+  if (!validationData) {
+    empty(v,'🔬','Click <strong>Validate Outputs</strong> to run consistency checks');
+    return;
+  }
+  const checks = validationData.checks||[];
+  const passed = checks.filter(c=>c.passed).length;
+  const all = checks.length;
+  v.innerHTML = `
+    <div style="margin-bottom:14px;font-size:15px;font-weight:600;">
+      ${passed===all?'✅':'⚠️'} ${passed}/${all} checks passed
+    </div>
+    <div style="background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:10px 14px;">
+      ${checks.map(c=>`
+      <div class="val-item">
+        <div class="val-icon">${c.passed?'✓':'✗'}</div>
+        <div>
+          <div>${esc(c.name)}</div>
+          ${c.detail&&!c.passed?`<div class="val-detail">${esc(c.detail)}</div>`:''}
+        </div>
+      </div>`).join('')}
+    </div>`;
+}
+
+// ── Pipeline runner ───────────────────────────────────────────────────────────
+async function runPipeline() {
+  if (running) return;
+  running = true;
+
+  const btnRun = document.getElementById('btn-run');
+  const btnVal = document.getElementById('btn-val');
+  const pill   = document.getElementById('status-pill');
+  const ind    = document.getElementById('ind');
+
+  btnRun.disabled = true;
+  btnVal.disabled = true;
+  btnRun.textContent = '⏳ Running…';
+  pill.className = 'status-pill running';
+  pill.textContent = 'Running';
+  ind.classList.add('on');
+
+  resetStages();
+  artifacts = {};
+  renderTab(currentTab);
+  log('Starting pipeline…', 'start');
+
+  try {
+    const resp = await fetch('/api/run');
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n');
+      buf = lines.pop();
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try { handleEvent(JSON.parse(line.slice(6))); }
+          catch {}
+        }
+      }
+    }
+  } catch (e) {
+    log('Connection error: ' + e.message, 'err');
+    pill.className = 'status-pill error';
+    pill.textContent = 'Error';
+  }
+
+  btnRun.disabled = false;
+  btnVal.disabled = false;
+  btnRun.textContent = '▶ Run Pipeline';
+  ind.classList.remove('on');
+  running = false;
+}
+
+function handleEvent(ev) {
+  switch (ev.type) {
+    case 'stage_start':
+      setStage(ev.stage, 'running');
+      log('▶ ' + ev.stage, 'start');
+      break;
+    case 'stage_done':
+      setStage(ev.stage, 'done');
+      log('✓ ' + ev.stage, 'done2');
+      break;
+    case 'log':
+      log(ev.message);
+      break;
+    case 'error':
+      log('ERROR: ' + ev.message, 'err');
+      document.getElementById('status-pill').className = 'status-pill error';
+      document.getElementById('status-pill').textContent = 'Error';
+      break;
+    case 'done':
+      log('Pipeline completed successfully!', 'finish');
+      document.getElementById('status-pill').className = 'status-pill done';
+      document.getElementById('status-pill').textContent = 'Done';
+      fetchArtifacts();
+      break;
+    case 'heartbeat':
+      break;
+  }
+}
+
+async function fetchArtifacts() {
+  try {
+    const r = await fetch('/api/artifacts');
+    artifacts = await r.json();
+    renderTab(currentTab);
+  } catch (e) {
+    log('Failed to load artifacts: ' + e.message, 'err');
+  }
+}
+
+async function runValidation() {
+  log('Running validation…', 'start');
+  document.getElementById('btn-val').disabled = true;
+  try {
+    const r = await fetch('/api/validate');
+    validationData = await r.json();
+    const chks = validationData.checks || [];
+    const ok   = chks.filter(c=>c.passed).length;
+    log(`Validation: ${ok}/${chks.length} checks passed`, ok===chks.length?'done2':'err');
+    showTab('validation');
+  } catch (e) {
+    log('Validation error: ' + e.message, 'err');
+  }
+  document.getElementById('btn-val').disabled = false;
+}
+
+// ── Bootstrap ────────────────────────────────────────────────────────────────
+initStages();
+renderTab('overview');
+fetchArtifacts();
+</script>
+</body>
+</html>

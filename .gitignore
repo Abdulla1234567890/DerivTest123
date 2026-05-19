@@ -1,0 +1,23 @@
+# Environment — never commit API keys
+.env
+.env.*
+
+# Generated pipeline artifacts (reproduced by running pipeline.py)
+triage.json
+retrieval_results.json
+draft_responses.json
+review_results.json
+response_checks.json
+final_responses.json
+llm_calls.jsonl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# macOS
+.DS_Store
