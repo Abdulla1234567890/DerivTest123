@@ -2,7 +2,9 @@
 
 An offline, replayable AI-assisted customer support workflow built for the Deriv technical assessment.
 
-Given a set of support tickets and a policy knowledge base, the pipeline classifies each ticket, retrieves relevant policies, drafts a reply, runs an LLM reviewer, applies deterministic safety checks, and produces a final response pack — all traceable and reproducible. Note : Once you have your API Setup please go into config and update model there and also add .env file as well
+Given a set of support tickets and a policy knowledge base, the pipeline classifies each ticket, retrieves relevant policies, drafts a reply, runs an LLM reviewer, applies deterministic safety checks, and produces a final response pack — all traceable and reproducible.
+
+> **Default state:** The pipeline runs in **mock mode** out of the box — no API key needed. All 10 stages execute fully using deterministic stubs so you can verify the complete flow immediately. To switch to real AI, see the [API Setup](#api-setup) section below.
 
 ---
 
@@ -41,17 +43,43 @@ Just drop your files in the project root and run the pipeline — everything reg
 # 1. Install dependencies
 pip install -r requirements.txt
 
-# 2. Add your Google API key
-echo "GOOGLE_API_KEY=AIza..." > .env
-
-# 3. Start the web interface
+# 2. Start the web interface
 python server.py
 
-# 4. Open in browser
+# 3. Open in browser
 open http://localhost:5001
 ```
 
-Click **▶ Run Pipeline** to process all tickets end-to-end.
+Click **▶ Run Pipeline** — it works immediately in mock mode with no API key required.
+
+---
+
+## API Setup
+
+To run with a real LLM, create a `.env` file in the project root and add your key:
+
+**Groq (recommended — fast, generous free tier):**
+```
+GROQ_API_KEY=gsk_...
+```
+
+**Google Gemini:**
+```
+GOOGLE_API_KEY=AIza...
+```
+
+Then open `config.json` and update these two fields:
+
+```json
+"provider": "groq",
+"model": "llama-3.3-70b-versatile",
+"mock_mode": false
+```
+
+| Provider | `provider` value | Recommended model |
+|---|---|---|
+| Groq | `groq` | `llama-3.3-70b-versatile` |
+| Google | `google` | `gemini-2.5-flash` |
 
 ---
 
@@ -65,10 +93,10 @@ INIT → INPUTS_LOADED → TICKETS_PARSED → KB_INDEXED
 
 | Stage | Type | Output |
 |---|---|---|
-| Ticket Triage | LLM (1 call/ticket) | `triage.json` |
+| Ticket Triage | LLM — 1 call per ticket | `triage.json` |
 | Policy Retrieval | Deterministic keyword scoring | `retrieval_results.json` |
-| Response Drafting | LLM (1 call/ticket) | `draft_responses.json` |
-| LLM Review | LLM (1 call/ticket) | `review_results.json` |
+| Response Drafting | LLM — 1 call per ticket | `draft_responses.json` |
+| LLM Review | LLM — 1 call per ticket | `review_results.json` |
 | Deterministic Checks | Code only | `response_checks.json` |
 | Finalise | Merge all results | `final_responses.json` |
 
@@ -96,17 +124,13 @@ All prompts, banned phrases, categories, and model settings live in `config.json
 
 | Key | Purpose |
 |---|---|
-| `model` | Gemini model to use |
-| `mock_mode` | `true` = skip API calls, run full flow with deterministic stubs |
+| `provider` | `groq` or `google` |
+| `model` | Model name for the chosen provider |
+| `mock_mode` | `true` = no API calls, full flow with deterministic stubs |
 | `categories` | Allowed triage categories |
 | `banned_phrases` | Triggers a check failure if found in a reply |
 | `retrieval.top_n` | Policies retrieved per ticket |
 | `prompts.*` | Prompt templates using `${variable}` substitution |
-
-**To switch off mock mode**:
-```json
-"mock_mode": false
-```
 
 ---
 
@@ -119,6 +143,8 @@ python pipeline.py
 # Validate all output artifacts
 python validate.py
 ```
+
+---
 
 ## Web Interface
 
@@ -141,14 +167,14 @@ server.py             Flask web server + SSE streaming
 index.html            Single-page web UI
 validate.py           26-point output validation script
 requirements.txt      Python dependencies
-.env                  API key (not committed)
+.env                  API keys (not committed)
 ```
 
 ---
 
 ## Tech Stack
 
-- **LLM** — Google Gemini via `google-genai` SDK
-- **Web server** — Flask with Server-Sent Events for live streaming
+- **LLM** — Groq (Llama 3.3) or Google Gemini, switchable via `config.json`
+- **Web server** — Flask with Server-Sent Events for real-time streaming
 - **Retrieval** — Deterministic keyword/token overlap scoring (no embeddings needed)
 - **Validation** — Pure Python, 26 automated checks
