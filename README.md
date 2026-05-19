@@ -6,6 +6,35 @@ Given a set of support tickets and a policy knowledge base, the pipeline classif
 
 ---
 
+## Replacing the Input Files
+
+The pipeline reads `tickets.json` and `policy_kb.json` from disk at runtime. **You can replace both files with your own data** — the pipeline does not depend on specific ticket IDs, wording, or policy titles.
+
+**`tickets.json`** — array of ticket objects, each with:
+```json
+{
+  "ticket_id": "T1",
+  "customer_name": "Amina",
+  "subject": "Withdrawal still pending after 3 days",
+  "message": "Hi, my withdrawal has been...",
+  "language": "en"
+}
+```
+
+**`policy_kb.json`** — array of policy objects, each with:
+```json
+{
+  "policy_id": "P1",
+  "title": "Withdrawal processing times",
+  "content": "Withdrawals are reviewed...",
+  "tags": ["withdrawal", "processing", "timing"]
+}
+```
+
+Just drop your files in the project root and run the pipeline — everything regenerates automatically.
+
+---
+
 ## Quick Start
 
 ```bash
