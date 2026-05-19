@@ -103,7 +103,7 @@ All prompts, banned phrases, categories, and model settings live in `config.json
 | `retrieval.top_n` | Policies retrieved per ticket |
 | `prompts.*` | Prompt templates using `${variable}` substitution |
 
-**To switch off mock mode** (once API quota is available):
+**To switch off mock mode**:
 ```json
 "mock_mode": false
 ```
